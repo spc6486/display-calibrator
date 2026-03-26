@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <g transform="translate(0, 2.5)">
+  <!-- Monitor body -->
+  <rect x="4" y="4" width="40" height="30" rx="3" ry="3" fill="#2d2d2d" stroke="#888" stroke-width="1.5"/>
+  <!-- Screen -->
+  <rect x="7" y="7" width="34" height="24" rx="1" fill="#1a3a5c"/>
+  <!-- Margin indicators (thin white lines showing crop area) -->
+  <rect x="11" y="10" width="26" height="18" rx="0" fill="none" stroke="#4fc3f7" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <!-- Crosshair center -->
+  <line x1="24" y1="14" x2="24" y2="24" stroke="#ff7043" stroke-width="1.2"/>
+  <line x1="18" y1="19" x2="30" y2="19" stroke="#ff7043" stroke-width="1.2"/>
+  <circle cx="24" cy="19" r="3.5" fill="none" stroke="#ff7043" stroke-width="1"/>
+  <!-- Touch dot -->
+  <circle cx="24" cy="19" r="1.2" fill="#ff7043"/>
+  <!-- Stand -->
+  <rect x="19" y="34" width="10" height="3" fill="#555"/>
+  <rect x="16" y="37" width="16" height="2" rx="1" fill="#555"/>
+  <!-- Corner markers (calibration points) -->
+  <rect x="10" y="9" width="3" height="3" fill="#66bb6a"/>
+  <rect x="35" y="9" width="3" height="3" fill="#66bb6a"/>
+  <rect x="10" y="26" width="3" height="3" fill="#66bb6a"/>
+  <rect x="35" y="26" width="3" height="3" fill="#66bb6a"/>
+  </g>
+</svg>
