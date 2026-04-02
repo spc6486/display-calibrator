@@ -2,17 +2,21 @@
 
 ## Overview
 
-Display Calibrator runs as a system tray icon, providing two main settings windows and several utility functions.
+Display Calibrator opens as a single window with three tabs: **Display**, **Touchscreen**, and **Tools**. It can also run as a system tray icon for quick access.
 
-### Tray menu
+### Launching
 
-| Menu item | Description |
-|-----------|-------------|
-| Display Settings | Resolution, scale, rotation, display borders |
-| Touchscreen Settings | Device mapping, calibration, fine-tuning |
-| Check for Conflicts | Scan for interfering manual config files |
-| Settings History | Browse and restore timestamped backups |
-| Quit | Exit the tray application |
+- **Application menu:** Preferences → Display Calibrator (opens the settings window)
+- **System tray:** Click the tray icon → Display Calibrator (opens the same window)
+- **Terminal:** `display-calibrator` (window) or `display-calibrator --tray` (tray icon only)
+
+### Tabs
+
+| Tab | Contents |
+|-----|----------|
+| **Display** | Resolution, scale, rotation, display borders |
+| **Touchscreen** | Device mapping, calibration, fine-tuning |
+| **Tools** | Conflicts, settings history, system status, tray toggle, uninstall |
 
 ## Recommended setup workflow
 
@@ -26,9 +30,9 @@ Display Calibrator runs as a system tray icon, providing two main settings windo
 
 Resolution, scale, and rotation changes apply instantly. Border changes and calibration take effect after reboot.
 
-## Display Settings
+## Display tab
 
-Open from the tray menu → **Display Settings**.
+Open the Display Calibrator window and select the **Display** tab.
 
 ### Output selector
 
@@ -57,10 +61,6 @@ Click **Adjust display borders** to open the fullscreen border editor. Borders c
 ### Apply
 
 Writes resolution, scale, and rotation config and applies live. A **15-second countdown** confirms the changes — if the screen goes blank (unsupported mode), settings auto-revert. Border changes are saved directly from the fullscreen border editor via its **Save** button.
-
-### Close
-
-Exits without saving resolution, scale, or rotation changes.
 
 ## Fullscreen border editor
 
@@ -95,9 +95,9 @@ The editor automatically maps the physical kernel margins to user-visible edges.
 
 When you change resolution in Display Settings with non-zero borders, the app offers to rescale borders proportionally. For example, borders of L:40 at 2048×1536 become L:20 at 1024×768.
 
-## Touchscreen Settings
+## Touchscreen tab
 
-Open from the tray menu → **Touchscreen Settings**.
+Select the **Touchscreen** tab.
 
 ### Device selectors
 
@@ -148,11 +148,9 @@ Writes the udev calibration rule, touch-to-output mapping, and applies live. Cha
 
 Removes the udev rule entirely, reverting to raw uncalibrated touch input. Located at the bottom-left of the window.
 
-### Close
+## Tools tab
 
-Exits without saving any changes since the last Apply.
-
-## Check for Conflicts
+### Check for Conflicts
 
 Scans the system for manually created configuration files that could interfere with the app's udev-based calibration approach.
 
@@ -166,7 +164,7 @@ Scans the system for manually created configuration files that could interfere w
 
 The scan runs automatically on first launch and before every save operation. Detected files can be removed with backups created automatically.
 
-## Settings History
+### Settings History
 
 Browse all timestamped backups created by the app. Each config change creates a backup before writing.
 
@@ -181,3 +179,15 @@ Backups are labeled by type:
 | Display settings (wayfire) | wayfire.ini |
 
 Select a backup and click **Restore** to revert to that snapshot. A maximum of 10 backups per file are kept — older ones are automatically cleaned up.
+
+### Show System Status
+
+Opens a window displaying detected hardware, current settings, and diagnostic information. Equivalent to `display-calibrator --cli` but in a GUI window with a Refresh button.
+
+### Show system tray icon
+
+Checkbox to enable or disable the system tray icon on login. When unchecked, the autostart entry is disabled and the tray icon won't appear after the next login. The app remains available from Preferences → Display Calibrator in the application menu.
+
+### Uninstall
+
+Removes the application with optional cleanup of touchscreen calibration and display border settings. See [install details](install.md) for what gets removed.

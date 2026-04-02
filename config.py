@@ -1025,3 +1025,28 @@ def cleanup_old_backups():
                     pass
 
 
+
+
+# ── Tray icon management ─────────────────────────────────────────────
+
+TRAY_AUTOSTART = "/etc/xdg/autostart/display-calibrator.desktop"
+
+
+def is_tray_enabled():
+    """Check if the tray icon autostart is active."""
+    return os.path.isfile(TRAY_AUTOSTART)
+
+
+def set_tray_enabled(enable):
+    """Enable or disable the tray icon autostart by renaming the file."""
+    disabled = TRAY_AUTOSTART + ".disabled"
+    try:
+        if enable and os.path.isfile(disabled):
+            subprocess.run(["sudo", "-n", "mv", disabled, TRAY_AUTOSTART],
+                           check=True, capture_output=True, timeout=10)
+        elif not enable and os.path.isfile(TRAY_AUTOSTART):
+            subprocess.run(["sudo", "-n", "mv", TRAY_AUTOSTART, disabled],
+                           check=True, capture_output=True, timeout=10)
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return False

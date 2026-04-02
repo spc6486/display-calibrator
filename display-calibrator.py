@@ -197,20 +197,10 @@ class CalibratorTray:
     def _build_menu(self):
         self.menu = Gtk.Menu()
 
-        self._add_item("Display Settings…", self._on_display_settings)
+        self._add_item("Display Calibrator…", self._on_settings)
 
         self.menu.append(Gtk.SeparatorMenuItem())
 
-        self._add_item("Touchscreen Settings…", self._on_touchscreen_settings)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        self._add_item("Check for Conflicts…", self._on_check_conflicts)
-        self._add_item("Settings History…", self._on_backup_history)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        self._add_item("Uninstall…", self._on_uninstall)
         self._add_item("Quit", self._on_quit)
 
         self.menu.show_all()
@@ -239,6 +229,161 @@ class CalibratorTray:
     # ════════════════════════════════════════════════════════
     # CONFLICT DETECTION & CLEANUP
     # ════════════════════════════════════════════════════════
+
+    def _on_settings(self, _=None):
+        """Open the unified settings window with tabs."""
+        win = Gtk.Window(title="Display Calibrator", default_width=440)
+        win.set_position(Gtk.WindowPosition.CENTER)
+        win.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        win.set_size_request(440, 520)  # minimum height for comfortable spacing
+        self._register_window(win)
+        self._settings_win = win
+        self._display_apply = None
+        self._touch_apply = None
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        outer.set_margin_start(8)
+        outer.set_margin_end(8)
+        outer.set_margin_top(6)
+        outer.set_margin_bottom(6)
+        win.add(outer)
+
+        # Header
+        header = Gtk.Label()
+        header.set_markup(
+            f"<big><b>Display Calibrator</b></big>  "
+            f"<small>v{config.VERSION}</small>")
+        header.set_xalign(0)
+        outer.pack_start(header, False, False, 0)
+
+        # Notebook
+        notebook = Gtk.Notebook()
+        outer.pack_start(notebook, True, True, 4)
+
+        # Tab 1: Display
+        display_page = self._build_display_tab(win)
+        notebook.append_page(display_page, Gtk.Label(label="Display"))
+
+        # Tab 2: Touchscreen
+        touch_page = self._build_touchscreen_tab(win)
+        notebook.append_page(touch_page, Gtk.Label(label="Touchscreen"))
+
+        # Tab 3: Tools
+        tools_page = self._build_tools_tab(win)
+        notebook.append_page(tools_page, Gtk.Label(label="Tools"))
+
+        # ── Global bottom bar ──
+        bottom = Gtk.Box(spacing=8)
+        bottom.set_margin_top(4)
+
+        # Left: tray toggle
+        tray_check = Gtk.CheckButton(label="Tray icon")
+        tray_check.set_active(config.is_tray_enabled())
+        tray_check.set_tooltip_text(
+            "Show system tray icon on login")
+        def on_tray_toggle(chk):
+            config.set_tray_enabled(chk.get_active())
+        tray_check.connect("toggled", on_tray_toggle)
+        bottom.pack_start(tray_check, False, False, 0)
+
+        # Right: Close + Apply
+        btn_close = Gtk.Button(label="Close")
+        btn_apply = Gtk.Button(label="Apply")
+        btn_apply.get_style_context().add_class("suggested-action")
+
+        def on_global_apply(_):
+            page = notebook.get_current_page()
+            if page == 0 and self._display_apply:
+                self._display_apply(None)
+            elif page == 1 and self._touch_apply:
+                self._touch_apply(None)
+
+        def on_global_close(_):
+            win.destroy()
+
+        btn_close.connect("clicked", on_global_close)
+        btn_apply.connect("clicked", on_global_apply)
+        bottom.pack_end(btn_apply, False, False, 0)
+        bottom.pack_end(btn_close, False, False, 0)
+
+        outer.pack_end(bottom, False, False, 0)
+
+        win.show_all()
+
+    def _build_tools_tab(self, win):
+        """Build the Tools tab: conflicts, history, status, uninstall, tray toggle."""
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vbox.set_margin_start(12)
+        vbox.set_margin_end(12)
+        vbox.set_margin_top(14)
+        vbox.set_margin_bottom(8)
+
+        # Conflicts
+        btn_conflicts = Gtk.Button(label="Check for Conflicts…")
+        btn_conflicts.set_tooltip_text(
+            "Scan for old manual calibration files\n"
+            "that could interfere with this app.")
+        btn_conflicts.connect("clicked", self._on_check_conflicts)
+        vbox.pack_start(btn_conflicts, False, False, 0)
+
+        # History
+        btn_history = Gtk.Button(label="Settings History…")
+        btn_history.set_tooltip_text(
+            "Browse and restore timestamped backups\n"
+            "of all configuration changes.")
+        btn_history.connect("clicked", self._on_backup_history)
+        vbox.pack_start(btn_history, False, False, 0)
+
+        # System status
+        btn_cli = Gtk.Button(label="Show System Status…")
+        btn_cli.set_tooltip_text("Display detected hardware, current\n"
+                                 "settings, and diagnostic information.")
+        def on_status(_):
+            swin = Gtk.Window(title="Display Calibrator — Status",
+                              default_width=500, default_height=400)
+            swin.set_position(Gtk.WindowPosition.CENTER)
+            swin.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+            svbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            svbox.set_margin_start(8)
+            svbox.set_margin_end(8)
+            svbox.set_margin_top(8)
+            svbox.set_margin_bottom(8)
+            swin.add(svbox)
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            textview = Gtk.TextView()
+            textview.set_editable(False)
+            textview.set_monospace(True)
+            textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            buf = textview.get_buffer()
+            buf.set_text(self._gather_status())
+            scroll.add(textview)
+            svbox.pack_start(scroll, True, True, 0)
+            btn_r = Gtk.Button(label="Refresh")
+            btn_r.connect("clicked", lambda _: buf.set_text(self._gather_status()))
+            btn_c = Gtk.Button(label="Close")
+            btn_c.connect("clicked", lambda _: swin.destroy())
+            hb = Gtk.Box(spacing=8)
+            hb.set_halign(Gtk.Align.END)
+            hb.pack_start(btn_r, False, False, 0)
+            hb.pack_start(btn_c, False, False, 0)
+            svbox.pack_end(hb, False, False, 4)
+            swin.show_all()
+        btn_cli.connect("clicked", on_status)
+        vbox.pack_start(btn_cli, False, False, 0)
+
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Uninstall
+        btn_uninstall = Gtk.Button(label="Uninstall…")
+        btn_uninstall.get_style_context().add_class("destructive-action")
+        btn_uninstall.connect("clicked", self._on_uninstall)
+        vbox.pack_start(btn_uninstall, False, False, 0)
+
+        # Bottom spacer
+        vbox.pack_start(Gtk.Box(), True, True, 0)
+
+        return vbox
 
     def _on_check_conflicts(self, _):
         conflicts = config.preflight_scan()
@@ -428,24 +573,18 @@ class CalibratorTray:
     # DISPLAY SETTINGS WINDOW (unified)
     # ════════════════════════════════════════════════════════
 
-    def _on_display_settings(self, _):
-        """Unified display settings: resolution, scale, rotation, borders."""
+    def _build_display_tab(self, win):
+        """Build the Display tab content."""
         outputs = devices.get_connected_outputs()
         if not outputs:
-            _error_dialog(None, "No connected display outputs found.")
-            return
+            lbl = Gtk.Label(label="No connected display outputs found.")
+            return lbl
 
-        win = Gtk.Window(title="Display Settings", default_width=420)
-        win.set_position(Gtk.WindowPosition.CENTER)
-        win.set_type_hint(Gdk.WindowTypeHint.DIALOG)
-        self._register_window(win)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_start(12)
         vbox.set_margin_end(12)
-        vbox.set_margin_top(8)
+        vbox.set_margin_top(14)
         vbox.set_margin_bottom(8)
-        win.add(vbox)
 
         # ── Output selector ──
         hbox_out = Gtk.Box(spacing=8)
@@ -628,6 +767,7 @@ class CalibratorTray:
 
             def _do_save_borders():
                 """Save borders from the editor directly."""
+                nonlocal saved_margins
                 new_m = {e: margin_spins[e].get_value_as_int()
                          for e in ("left", "right", "top", "bottom")}
                 if new_m == saved_margins:
@@ -637,10 +777,10 @@ class CalibratorTray:
                     conn_name, kern_m["left"], kern_m["right"],
                     kern_m["top"], kern_m["bottom"])
                 if not ok:
-                    _error_dialog(None, msg)
+                    _error_dialog(win, msg)
                     return False
                 saved_margins = dict(new_m)
-                resp = _reboot_or_cancel_dialog(None, "Borders Saved",
+                resp = _reboot_or_cancel_dialog(win, "Borders Saved",
                     "Border changes require a reboot to take effect.\n\n"
                     "If the screen is unusable after reboot, mount\n"
                     "the SD card and edit cmdline.txt.")
@@ -659,14 +799,6 @@ class CalibratorTray:
                 on_save=_do_save_borders)
         btn_borders.connect("clicked", on_borders_click)
         vbox.pack_start(btn_borders, False, False, 0)
-
-        # ── Apply / Close ──
-        hbox_btn = Gtk.Box(spacing=8)
-        hbox_btn.set_halign(Gtk.Align.END)
-
-        btn_close = Gtk.Button(label="Close")
-        btn_apply = Gtk.Button(label="Apply")
-        btn_apply.get_style_context().add_class("suggested-action")
 
         def on_apply(_):
             if not self._pre_write_check("applying display settings"):
@@ -757,6 +889,11 @@ class CalibratorTray:
                     name, transform=new_rot, scale=new_scale, mode=new_mode)
 
                 if ok_live:
+                    # Hide settings window so countdown dialog is fully visible
+                    self._hide_all_windows()
+                    # Force GTK to process the hide before showing dialog
+                    while Gtk.events_pending():
+                        Gtk.main_iteration()
                     # Countdown confirm — if screen went blank, auto-reverts
                     kept = _countdown_confirm(win,
                         "Confirm Display Settings",
@@ -764,6 +901,7 @@ class CalibratorTray:
                         "If the screen is unreadable, settings will\n"
                         "automatically revert.",
                         timeout=15)
+                    self._show_all_windows()
                     if not kept:
                         # Revert: restore config and apply old settings live
                         if bak_comp:
@@ -813,12 +951,7 @@ class CalibratorTray:
                 _info_dialog(win, "No Changes",
                     "No settings were changed.")
 
-        btn_close.connect("clicked", lambda _: win.destroy())
-        btn_apply.connect("clicked", on_apply)
-
-        hbox_btn.pack_start(btn_close, False, False, 0)
-        hbox_btn.pack_start(btn_apply, False, False, 0)
-        vbox.pack_end(hbox_btn, False, False, 0)
+        self._display_apply = on_apply
 
         # ── Output change handler ──
         def on_output_changed(_):
@@ -887,7 +1020,7 @@ class CalibratorTray:
         # Initial info card update
         _update_info()
 
-        win.show_all()
+        return vbox
 
 
     def _fullscreen_margin_editor(self, spins, panel_w, panel_h, scale, parent_win=None, on_save=None):
@@ -1100,15 +1233,15 @@ class CalibratorTray:
                 fs_spins[e].set_value(0)
 
         def on_save_click(_):
+            fwin.destroy()  # close fullscreen first so dialogs aren't behind it
             if on_save:
                 on_save()
-            GLib.idle_add(fwin.destroy)
 
         def on_cancel(_):
             # Restore original values
             for e in ("left", "right", "top", "bottom"):
                 spins[e].set_value(active[e])
-            GLib.idle_add(fwin.destroy)
+            fwin.destroy()
 
         btn_reset.connect("clicked", on_reset)
         btn_clear.connect("clicked", on_clear)
@@ -1152,30 +1285,25 @@ class CalibratorTray:
         fwin.show_all()
         btn_save.grab_focus()
 
-    def _on_touchscreen_settings(self, _):
-        """Unified touchscreen settings: mapping, calibration, fine-tune."""
+    def _build_touchscreen_tab(self, win):
+        """Build the Touchscreen tab content."""
         touch_devs = devices.get_touch_devices()
         outputs = devices.get_connected_outputs()
 
         if not touch_devs:
-            _error_dialog(None, "No touch devices found.")
-            return
+            lbl = Gtk.Label(label="No touch devices detected.\n\n"
+                            "Connect a touchscreen and reopen settings.")
+            lbl.set_line_wrap(True)
+            return lbl
         if not outputs:
-            _error_dialog(None, "No connected display outputs.")
-            return
+            lbl = Gtk.Label(label="No connected display outputs.")
+            return lbl
 
-        win = Gtk.Window(title="Touchscreen Settings",
-                         default_width=420)
-        win.set_position(Gtk.WindowPosition.CENTER)
-        win.set_type_hint(Gdk.WindowTypeHint.DIALOG)
-        self._register_window(win)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_start(12)
         vbox.set_margin_end(12)
-        vbox.set_margin_top(8)
+        vbox.set_margin_top(14)
         vbox.set_margin_bottom(8)
-        win.add(vbox)
 
         # ── Device selectors ──
         grid_sel = Gtk.Grid(column_spacing=8, row_spacing=4)
@@ -1340,9 +1468,7 @@ class CalibratorTray:
             new_ty = spin_px_y.get_value() / screen_h
             return [new_sx, 0.0, new_tx, 0.0, new_sy, new_ty, 0.0, 0.0, 1.0]
 
-        # ── Bottom buttons: Clear left, Close+Apply right ──
-        hbox_btn = Gtk.Box(spacing=8)
-
+        # ── Clear calibration ──
         btn_clear = Gtk.Button(label="Clear Calibration")
         btn_clear.get_style_context().add_class("destructive-action")
 
@@ -1359,22 +1485,21 @@ class CalibratorTray:
                 _update_fine_tune()
 
         btn_clear.connect("clicked", on_clear)
-        hbox_btn.pack_start(btn_clear, False, False, 0)
-
-        # Spacer
-        hbox_btn.pack_start(Gtk.Box(), True, True, 0)
-
-        btn_close = Gtk.Button(label="Close")
-        btn_apply = Gtk.Button(label="Apply")
-        btn_apply.get_style_context().add_class("suggested-action")
-
-        def on_close_ts(_):
-            win.destroy()
+        vbox.pack_start(btn_clear, False, False, 0)
 
         def on_apply_ts(_):
+            nonlocal cal, cal_name, cur_matrix
             if not self._pre_write_check("applying touchscreen settings"):
                 return
+            # Save touch-to-output mapping
             config.write_touch_mapping(cur_dev["name"], cur_conn)
+            # Only write calibration if we have a matrix
+            if not cur_matrix:
+                _info_dialog(win, "Mapping Saved",
+                    f"Touch device mapped to {cur_conn}.\n\n"
+                    f"Run 'Calibrate touchscreen' to set up\n"
+                    f"the calibration matrix.")
+                return
             mat = _build_matrix()
             ok, bak, msg = config.write_calibration(cur_dev["name"], mat)
             if not ok:
@@ -1385,7 +1510,6 @@ class CalibratorTray:
                 ok2, msg2 = config.apply_calibration_live(event_name)
             else:
                 ok2, msg2 = False, "Cannot determine event name"
-            nonlocal cal, cal_name, cur_matrix
             cal = config.read_calibration()
             cal_name = cal[0] if cal else None
             cur_matrix = cal[1] if cal else None
@@ -1398,11 +1522,7 @@ class CalibratorTray:
                     f"Calibration saved but live apply failed:\n{msg2}\n\n"
                     f"A reboot may be needed.")
 
-        btn_close.connect("clicked", on_close_ts)
-        btn_apply.connect("clicked", on_apply_ts)
-        hbox_btn.pack_start(btn_close, False, False, 0)
-        hbox_btn.pack_start(btn_apply, False, False, 0)
-        vbox.pack_end(hbox_btn, False, False, 0)
+        self._touch_apply = on_apply_ts
 
         # ── Combo change handlers ──
         def on_touch_changed(_):
@@ -1431,7 +1551,8 @@ class CalibratorTray:
         combo_output.connect("changed", on_output_changed)
 
         _update_info()
-        win.show_all()
+
+        return vbox
 
 
     def _run_calibration_overlay(self, dev, conn, rotation, on_done=None):
@@ -1459,7 +1580,7 @@ class CalibratorTray:
 
         INSET = 30  # pixels from screen edge (small for scale=2 screens)
         points = []          # captured (norm_x, norm_y)
-        state = {"idx": 0, "screen_w": 1024, "screen_h": 768}
+        state = {"idx": 0, "screen_w": 1024, "screen_h": 768, "cancelled": False}
 
         def get_targets(w, h):
             return [
@@ -1518,6 +1639,7 @@ class CalibratorTray:
 
         def on_key(widget, event):
             if event.keyval == Gdk.KEY_Escape:
+                state["cancelled"] = True
                 win.destroy()
                 return True
 
@@ -1538,9 +1660,14 @@ class CalibratorTray:
             try:
                 path = dev["kernel"]
                 for idx, nx, ny in touch_capture.capture_points(path, 4, timeout=30):
+                    if state["cancelled"]:
+                        return
                     points.append((nx, ny))
                     state["idx"] = idx + 1
                     GLib.idle_add(da.queue_draw)
+
+                if state["cancelled"]:
+                    return
 
                 # Deduplicate points — some touch controllers report each touch twice
                 deduped = []
@@ -2241,12 +2368,27 @@ def main():
     if "--help" in sys.argv or "-h" in sys.argv:
         print(f"display-calibrator {config.VERSION}")
         print("Usage: display-calibrator [OPTIONS]")
-        print("  (none)      Launch system tray application")
-        print("  --cli       Print status to terminal (no GUI)")
+        print("  (none)      Open settings window")
+        print("  --tray      Run as system tray icon")
+        print("  --cli       Print status to terminal")
         print("  --version   Show version")
         return
 
     app = CalibratorTray()
+
+    if "--tray" in sys.argv:
+        # Tray-only mode: stay alive, open window on click
+        pass
+    else:
+        # Window mode: open settings directly, quit on close
+        if AppIndicator3 and app.indicator:
+            app.indicator.set_status(AppIndicator3.IndicatorStatus.PASSIVE)
+        app._on_settings()
+        # Find the settings window and connect destroy to quit
+        for w in app._open_windows:
+            w.connect("destroy", lambda _: Gtk.main_quit())
+            break
+
     Gtk.main()
 
 

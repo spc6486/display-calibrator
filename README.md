@@ -18,16 +18,18 @@ If you're building a project where a physical bezel, enclosure, or frame covers 
 - **Multi-display and multi-touch** — configure each pairing independently
 - **labwc and Wayfire** — works on both compositors (primarily tested on labwc; Pi OS deprecated Wayfire in favor of labwc since October 2024)
 
-## Requirements
+## Compatibility
 
-- Raspberry Pi running Pi OS Bookworm (or later) with Wayland
-- Python 3.9+
-- GTK 3
+Works on Raspberry Pi 5, 4, 3, and Zero 2 W running Pi OS Bookworm (or later) with Wayland. Requires Python 3.9+ and GTK 3 (installed automatically).
+
+Not compatible with Raspberry Pi Pico (microcontroller — no Linux desktop).
+
+A touchscreen is not required. The app works as a display-border-only tool for projects with keyboard/mouse input.
 
 ## Install
 
 ```bash
-git clone https://github.com/youruser/display-calibrator.git
+git clone https://github.com/spc6486/display-calibrator.git
 cd display-calibrator
 ./install.sh
 ```

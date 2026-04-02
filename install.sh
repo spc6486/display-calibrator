@@ -149,6 +149,9 @@ $USER_REAL ALL=(root) NOPASSWD: /usr/bin/systemd-hwdb update
 $USER_REAL ALL=(root) NOPASSWD: /usr/bin/systemctl restart lightdm
 # Reboot for margin changes
 $USER_REAL ALL=(root) NOPASSWD: /usr/sbin/reboot
+# Tray icon toggle (rename autostart file)
+$USER_REAL ALL=(root) NOPASSWD: /bin/mv /etc/xdg/autostart/display-calibrator.desktop /etc/xdg/autostart/display-calibrator.desktop.disabled
+$USER_REAL ALL=(root) NOPASSWD: /bin/mv /etc/xdg/autostart/display-calibrator.desktop.disabled /etc/xdg/autostart/display-calibrator.desktop
 SUDOEOF
 sudo chmod 440 "$SUDOERS"
 echo "  Sudoers rules installed for passwordless calibration."
@@ -226,7 +229,7 @@ sudo tee "$AUTOSTART_SYS" > /dev/null <<EOF
 Type=Application
 Name=Display Calibrator Tray
 Comment=System tray for display and touchscreen calibration
-Exec=sh -c 'sleep 3 && $LAUNCHER'
+Exec=sh -c 'sleep 3 && $LAUNCHER --tray'
 Icon=display-calibrator
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
