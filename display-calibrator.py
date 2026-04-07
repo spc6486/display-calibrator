@@ -966,12 +966,17 @@ class CalibratorTray:
                         pass  # non-fatal
 
             # Show result
+            rotation_changed = new_rot != rotation
             if margins_changed:
+                recal_note = ""
+                if rotation_changed and config.read_calibration():
+                    recal_note = ("\n\nRotation changed — touchscreen calibration\n"
+                                  "will need to be redone after reboot.")
                 resp = _reboot_or_cancel_dialog(win, "Settings Applied",
                     f"Display settings applied for {name}.\n\n"
                     f"Border changes require a reboot to take effect.\n\n"
                     f"If the screen is unusable after reboot, mount\n"
-                    f"the SD card and edit cmdline.txt.")
+                    f"the SD card and edit cmdline.txt.{recal_note}")
                 if resp == "reboot":
                     subprocess.Popen(["sudo", "reboot"])
                 elif resp == "cancel":
@@ -980,8 +985,14 @@ class CalibratorTray:
                     for e in ("left", "right", "top", "bottom"):
                         margin_spins[e].set_value(saved_margins.get(e, 0))
             elif display_changed:
-                _info_dialog(win, "Applied",
-                    f"Display settings applied for {name}.")
+                if rotation_changed and config.read_calibration():
+                    _info_dialog(win, "Applied",
+                        f"Display settings applied for {name}.\n\n"
+                        f"Rotation changed — touchscreen calibration\n"
+                        f"will need to be redone.")
+                else:
+                    _info_dialog(win, "Applied",
+                        f"Display settings applied for {name}.")
             else:
                 _info_dialog(win, "No Changes",
                     "No settings were changed.")
@@ -2199,6 +2210,9 @@ def _info_dialog(parent, title, msg=""):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK, text=title)
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
     dlg.set_position(Gtk.WindowPosition.CENTER)
     if msg:
@@ -2211,6 +2225,9 @@ def _error_dialog(parent, msg):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK, text="Error")
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
     dlg.set_position(Gtk.WindowPosition.CENTER)
     dlg.format_secondary_text(msg)
@@ -2222,6 +2239,9 @@ def _confirm_dialog(parent, title, msg):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO, text=title)
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
     dlg.set_position(Gtk.WindowPosition.CENTER)
     dlg.format_secondary_text(msg)
@@ -2235,6 +2255,9 @@ def _reboot_dialog(parent, title, msg):
     dlg = Gtk.Dialog(title=title, parent=parent, flags=0)
     dlg.set_default_size(340, 140)
     dlg.set_position(Gtk.WindowPosition.CENTER)
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
 
     box = dlg.get_content_area()
@@ -2264,6 +2287,9 @@ def _reboot_or_cancel_dialog(parent, title, msg):
     dlg = Gtk.Dialog(title=title, parent=parent, flags=0)
     dlg.set_default_size(380, 160)
     dlg.set_position(Gtk.WindowPosition.CENTER)
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
 
     box = dlg.get_content_area()
@@ -2305,6 +2331,9 @@ def _countdown_confirm(parent, title, msg, timeout=15):
     dlg = Gtk.Dialog(title=title, parent=parent, flags=0)
     dlg.set_default_size(400, 160)
     dlg.set_position(Gtk.WindowPosition.CENTER)
+    if parent:
+        dlg.set_transient_for(parent)
+        dlg.set_modal(True)
     dlg.set_keep_above(True)
 
     btn_revert = dlg.add_button("Revert Now", Gtk.ResponseType.CANCEL)
