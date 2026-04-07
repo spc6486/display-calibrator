@@ -184,9 +184,14 @@ echo "[4/5] Creating launcher and menu entry..."
 # CLI/GUI launcher
 sudo tee "$LAUNCHER" > /dev/null <<EOF
 #!/bin/sh
-# Wait for panel to be ready on autostart (no-op if already running)
-if [ -z "\$DISPLAY" ] && [ -z "\$WAYLAND_DISPLAY" ]; then
-    sleep 3
+# Auto-detect Wayland display if not set
+if [ -z "\$WAYLAND_DISPLAY" ]; then
+    for sock in /run/user/\$(id -u)/wayland-*; do
+        if [ -S "\$sock" ]; then
+            export WAYLAND_DISPLAY=\$(basename "\$sock")
+            break
+        fi
+    done
 fi
 cd "$INSTALL_DIR"
 exec python3 display-calibrator.py "\$@"

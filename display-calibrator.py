@@ -779,7 +779,26 @@ class CalibratorTray:
                 if not ok:
                     _error_dialog(win, msg)
                     return False
+
+                # Adjust calibration if one exists with reference margins
+                old_saved = saved_margins
                 saved_margins = dict(new_m)
+                cal = config.read_calibration()
+                ref_conn, ref_margins = config.read_calibration_reference()
+                if cal and ref_conn == conn_name and ref_margins:
+                    old_kern = _margin_user_to_kernel(old_saved, cur_rot_sel)
+                    try:
+                        new_mat = matrix.adjust_for_margins(
+                            cal[1], pw, ph,
+                            ref_margins["left"], ref_margins["right"],
+                            ref_margins["top"], ref_margins["bottom"],
+                            kern_m["left"], kern_m["right"],
+                            kern_m["top"], kern_m["bottom"])
+                        config.write_calibration(cal[0], new_mat)
+                        config.save_calibration_reference(conn_name, kern_m)
+                    except Exception:
+                        pass  # non-fatal — user can recalibrate
+
                 resp = _reboot_or_cancel_dialog(win, "Borders Saved",
                     "Border changes require a reboot to take effect.\n\n"
                     "If the screen is unusable after reboot, mount\n"
@@ -929,6 +948,22 @@ class CalibratorTray:
                 if not ok_m:
                     _error_dialog(win, msg_m)
                     return
+
+                # Adjust calibration if one exists with reference margins
+                cal = config.read_calibration()
+                ref_conn, ref_margins = config.read_calibration_reference()
+                if cal and ref_conn == name and ref_margins:
+                    try:
+                        new_mat = matrix.adjust_for_margins(
+                            cal[1], pw, ph,
+                            ref_margins["left"], ref_margins["right"],
+                            ref_margins["top"], ref_margins["bottom"],
+                            kern_m["left"], kern_m["right"],
+                            kern_m["top"], kern_m["bottom"])
+                        config.write_calibration(cal[0], new_mat)
+                        config.save_calibration_reference(name, kern_m)
+                    except Exception:
+                        pass  # non-fatal
 
             # Show result
             if margins_changed:
@@ -1676,7 +1711,7 @@ class CalibratorTray:
                         deduped.append(p)
 
                 if len(deduped) < 4:
-                    GLib.idle_add(lambda: _error_dialog(None,
+                    GLib.idle_add(lambda: _error_dialog(getattr(self, "_settings_win", None),
                         f"Only {len(deduped)} unique points captured (need 4).\n"
                         f"Raw points: {len(points)}"))
                     return
@@ -1690,14 +1725,15 @@ class CalibratorTray:
                 GLib.idle_add(lambda: self._finish_calibration(
                     win, dev, conn, rotation, deduped, target_tl, target_br))
             except Exception as e:
-                GLib.idle_add(lambda: (_error_dialog(None, str(e)), win.destroy()))
+                GLib.idle_add(lambda: (_error_dialog(getattr(self, "_settings_win", None), str(e)), win.destroy()))
 
         threading.Thread(target=capture, daemon=True).start()
 
     def _finish_calibration(self, overlay, dev, conn, rotation, pts, target_tl, target_br):
         overlay.destroy()
+        parent = getattr(self, '_settings_win', None)
         if len(pts) < 4:
-            _error_dialog(None, "Not enough points captured.")
+            _error_dialog(parent, "Not enough points captured.")
             return
 
         # Use TL (index 0) and BR (index 2) raw touch coordinates
@@ -1707,11 +1743,11 @@ class CalibratorTray:
         try:
             mat = matrix.from_4point(raw_tl, raw_br, target_tl, target_br, rotation)
         except ValueError as e:
-            _error_dialog(None, str(e))
+            _error_dialog(parent, str(e))
             return
 
         desc = matrix.describe(mat)
-        if _confirm_dialog(None, "Apply Calibration?",
+        if _confirm_dialog(parent, "Apply Calibration?",
                 f"Computed matrix:\n{matrix.fmt(mat, 4)}\n\n{desc}\n\n"
                 f"Raw TL=({raw_tl[0]:.3f},{raw_tl[1]:.3f}) "
                 f"BR=({raw_br[0]:.3f},{raw_br[1]:.3f})\n"
@@ -2163,6 +2199,8 @@ def _info_dialog(parent, title, msg=""):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK, text=title)
+    dlg.set_keep_above(True)
+    dlg.set_position(Gtk.WindowPosition.CENTER)
     if msg:
         dlg.format_secondary_text(msg)
     dlg.run()
@@ -2173,6 +2211,8 @@ def _error_dialog(parent, msg):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK, text="Error")
+    dlg.set_keep_above(True)
+    dlg.set_position(Gtk.WindowPosition.CENTER)
     dlg.format_secondary_text(msg)
     dlg.run()
     dlg.destroy()
@@ -2182,6 +2222,8 @@ def _confirm_dialog(parent, title, msg):
     dlg = Gtk.MessageDialog(parent=parent, flags=0,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO, text=title)
+    dlg.set_keep_above(True)
+    dlg.set_position(Gtk.WindowPosition.CENTER)
     dlg.format_secondary_text(msg)
     resp = dlg.run()
     dlg.destroy()
